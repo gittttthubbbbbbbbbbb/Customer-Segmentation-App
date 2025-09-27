@@ -14,7 +14,7 @@ example_data = {
 }
 example_df = pd.DataFrame(example_data)
 
-st.write(" Example CSV format (download and test):")
+st.write("Example CSV format (download and test):")
 st.dataframe(example_df)
 
 csv = example_df.to_csv(index=False).encode("utf-8")
@@ -83,7 +83,7 @@ if uploaded_file is not None:
         st.pyplot(fig2)
 
         # Scatter plot of first 2 numerical features
-        st.write("### 🔎 Scatter Plot of Clusters (using first 2 numeric features)")
+        st.write("### Scatter Plot of Clusters (using first 2 numeric features)")
         if num_df.shape[1] >= 2:
             fig3, ax3 = plt.subplots()
             sns.scatterplot(
@@ -104,8 +104,9 @@ if uploaded_file is not None:
         # Download clustered CSV
         csv = df.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="📥 Download Clustered CSV",
+            label="Download Clustered CSV",
             data=csv,
             file_name="customer_clustered.csv",
             mime="text/csv"
+
         )
