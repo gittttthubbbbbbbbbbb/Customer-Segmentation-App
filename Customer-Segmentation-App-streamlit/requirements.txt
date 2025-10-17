@@ -3,5 +3,6 @@ matplotlib
 seaborn
 scikit-learn
 streamlit
-plotly
+plotly>=5.0.0
 kaleido
+
