@@ -1,111 +1,105 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import plotly.express as px
+import plotly.figure_factory as ff
+from io import BytesIO
 from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
 
-# Example data
-example_data = {
-    "CustomerID": [1, 2, 3, 4, 5],
-    "Age": [25, 34, 45, 23, 35],
-    "Annual Income (k$)": [15, 40, 75, 18, 55],
-    "Spending Score (1-100)": [39, 81, 6, 77, 40]
+#  PAGE CONFIGURATION
+st.set_page_config(page_title="Dashboard", layout="wide")
+
+st.title("Dashboard")
+st.markdown("### Analyze customer behavior and visualize clusters interactively.")
+st.write("Upload your dataset (CSV) below or explore the sample dataset preview.")
+st.write("CSV Format(download and test)")
+#  SAMPLE DATA
+sample_data = {
+    "CustomerID": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    "Gender": ["Male", "Male", "Female", "Female", "Female", "Female", "Female", "Female", "Male", "Female", 
+               "Male", "Female", "Female", "Female", "Male", "Male", "Female", "Male", "Male", "Female"],
+    "Age": [19, 21, 20, 23, 31, 22, 35, 23, 64, 30, 67, 35, 58, 24, 37, 22, 35, 20, 52, 35],
+    "Annual Income (k$)": [15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 23, 23],
+    "Spending Score (1-100)": [39, 81, 6, 77, 40, 76, 6, 94, 3, 72, 14, 99, 15, 77, 13, 79, 35, 66, 29, 98]
 }
-example_df = pd.DataFrame(example_data)
+st.dataframe(pd.DataFrame(sample_data))
 
-st.write(" Example CSV format (download and test):")
-st.dataframe(example_df)
+#  FILE UPLOAD
+uploaded_file = st.file_uploader("Upload your customer dataset (CSV)", type=["csv"])
+if uploaded_file:
+    data = pd.read_csv(uploaded_file)
+else:
+    data = pd.DataFrame(sample_data)
 
-csv = example_df.to_csv(index=False).encode("utf-8")
-st.download_button(
-    label=" Download Example CSV",
-    data=csv,
-    file_name="example_customers.csv",
-    mime="text/csv"
-)
+st.markdown("### Sample Dataset Preview")
+st.dataframe(data.head())
 
-# Streamlit Page Configuration
-st.set_page_config(page_title="Customer Segmentation", layout="wide")
+#  DOWNLOAD FUNCTION
+def download_plotly(fig, filename):
+    buffer = BytesIO()
+    fig.write_image(buffer, format="png")
+    st.download_button(
+        label=f"Download {filename}",
+        data=buffer.getvalue(),
+        file_name=filename,
+        mime="image/png"
+    )
 
-st.title(" Customer Segmentation using KMeans Clustering")
+#  TABS
+tabs = st.tabs([
+    "Gender Distribution", "Age Distribution", "Annual Income",
+     "Elbow Method", "Clusters"
+])
 
-# Upload dataset
-uploaded_file = st.file_uploader("Upload your dataset (CSV)", type="csv")
+#  GENDER DISTRIBUTION
+with tabs[0]:
+    fig = px.histogram(data, x="Gender", color="Gender", title="Gender Distribution",
+                       color_discrete_sequence=["#5DADE2", "#2874A6"])
+    fig.update_layout(template="simple_white", title_x=0.5)
+    st.plotly_chart(fig, use_container_width=True)
+    download_plotly(fig, "gender_distribution.png")
 
-if uploaded_file is not None:
-    # Load dataset
-    df = pd.read_csv(uploaded_file)
-    st.write("### Data Preview", df.head())
+#  AGE DISTRIBUTION
+with tabs[1]:
+    fig = px.histogram(data, x="Age", nbins=10, title="Age Distribution",
+                       color_discrete_sequence=["#5DADE2"])
+    fig.update_layout(template="simple_white", title_x=0.5)
+    st.plotly_chart(fig, use_container_width=True)
+    download_plotly(fig, "age_distribution.png")
 
-    # Select only numerical columns for clustering
-    num_df = df.select_dtypes(include=["int64", "float64"])
+#  ANNUAL INCOME
+with tabs[2]:
+    fig = px.histogram(data, x="Annual Income (k$)", nbins=10, title="Annual Income Distribution",
+                       color_discrete_sequence=["#2E86C1"])
+    fig.update_layout(template="simple_white", title_x=0.5)
+    st.plotly_chart(fig, use_container_width=True)
+    download_plotly(fig, "annual_income_distribution.png")
 
-    if num_df.empty:
-        st.error("No numeric columns found for clustering. Please upload a dataset with numeric values.")
-    else:
-        # Standardize Data
-        scaler = StandardScaler()
-        scaled_data = scaler.fit_transform(num_df)
+#  ELBOW METHOD
+with tabs[3]:
+    X = data[["Annual Income (k$)", "Spending Score (1-100)"]]
+    wcss = []
+    for i in range(1, 11):
+        kmeans = KMeans(n_clusters=i, init="k-means++", random_state=42)
+        kmeans.fit(X)
+        wcss.append(kmeans.inertia_)
+    fig = px.line(x=range(1, 11), y=wcss, markers=True, title="Elbow Method for Optimal Clusters",
+                  labels={"x": "Number of Clusters", "y": "WCSS"},
+                  color_discrete_sequence=["#2874A6"])
+    fig.update_layout(template="simple_white", title_x=0.5)
+    st.plotly_chart(fig, use_container_width=True)
+    download_plotly(fig, "elbow_method.png")
 
-        # Elbow Method
-        st.write("### Elbow Method to Find Optimal Clusters")
-        distortions = []
-        for k in range(1, 11):
-            kmeans = KMeans(n_clusters=k, init="k-means++", random_state=42, n_init=10)
-            kmeans.fit(scaled_data)
-            distortions.append(kmeans.inertia_)
+#  CLUSTERS
+with tabs[4]:
+    X = data[["Annual Income (k$)", "Spending Score (1-100)"]]
+    kmeans = KMeans(n_clusters=5, init="k-means++", random_state=42)
+    data["Cluster"] = kmeans.fit_predict(X)
+    fig = px.scatter(data, x="Annual Income (k$)", y="Spending Score (1-100)",
+                     color=data["Cluster"].astype(str),
+                     title="Customer Segments Visualization",
+                     color_discrete_sequence=px.colors.qualitative.Set2)
+    fig.update_layout(template="simple_white", title_x=0.5)
+    st.plotly_chart(fig, use_container_width=True)
+    download_plotly(fig, "cluster_visualization.png")
 
-        fig1, ax1 = plt.subplots()
-        ax1.plot(range(1, 11), distortions, marker="o")
-        ax1.set_xlabel("Number of Clusters (k)")
-        ax1.set_ylabel("Distortion / Inertia")
-        ax1.set_title("Elbow Method")
-        st.pyplot(fig1)
-
-        # User selects cluster count
-        n_clusters = st.slider("Select number of clusters", 2, 10, 3)
-
-        # Run KMeans
-        kmeans = KMeans(n_clusters=n_clusters, init="k-means++", random_state=42, n_init=10)
-        df["Cluster"] = kmeans.fit_predict(scaled_data)
-
-        st.write("### Clustered Data", df.head())
-
-        # Cluster distribution bar chart
-        st.write("### Cluster Size Distribution")
-        cluster_counts = df["Cluster"].value_counts().sort_index()
-        fig2, ax2 = plt.subplots()
-        sns.barplot(x=cluster_counts.index, y=cluster_counts.values, ax=ax2, palette="tab10")
-        ax2.set_xlabel("Cluster")
-        ax2.set_ylabel("Number of Customers")
-        ax2.set_title("Cluster Size Distribution")
-        st.pyplot(fig2)
-
-        # Scatter plot of first 2 numerical features
-        st.write("## Scat#ter Plot of Clusters (using first 2 numeric features)")
-        if num_df.shape[1] >= 2:
-            fig3, ax3 = plt.subplots()
-            sns.scatterplot(
-                x=num_df.iloc[:, 0],
-                y=num_df.iloc[:, 1],
-                hue=df["Cluster"],
-                palette="tab10",
-                s=60,
-                ax=ax3
-            )
-            ax3.set_xlabel(num_df.columns[0])
-            ax3.set_ylabel(num_df.columns[1])
-            ax3.set_title("Customer Clusters")
-            st.pyplot(fig3)
-        else:
-            st.warning("Not enough numeric columns to plot scatter graph.")
-
-        # Download clustered CSV
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="Download Clustered CSV",
-            data=csv,
-            file_name="customer_clustered.csv",
-            mime="text/csv"
-        )
+st.success("Dashboard ready! Switch between tabs to explore all visualizations.")
